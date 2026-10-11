@@ -1,0 +1,11 @@
+# Python packages (pip). Install with:
+#   pip install -r requirements.txt            (add --break-system-packages on newer Raspberry Pi OS)
+#
+# NOTE: low-level hardware access needs system packages that pip cannot
+# provide reliably - install them with apt instead:
+#   sudo apt install python3-spidev python3-libgpiod python3-pil
+# Optional: sudo apt install python3-numpy   (faster screen refresh)
+# Optional: sudo apt install mpg123 ffmpeg   (MP3 / other audio formats)
+
+Pillow>=9.0
+# numpy            # optional, ~2x faster full-screen refresh

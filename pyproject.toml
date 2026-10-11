@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "whisplaykit"
+version = "1.0.0"
+description = "Easy-to-use Python API for the PiSugar Whisplay HAT (LCD, button, RGB LED, speaker, microphone)"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "Apache-2.0" }
+authors = [{ name = "whisplaykit contributors" }]
+keywords = ["pisugar", "whisplay", "raspberry-pi", "lcd", "hat", "st7789"]
+dependencies = ["Pillow>=9.0"]
+
+[project.optional-dependencies]
+# numpy only speeds up the RGB -> RGB565 conversion (~2x faster refresh).
+fast = ["numpy"]
+
+[project.urls]
+"Whisplay HAT docs" = "https://docs.pisugar.com/docs/product-wiki/whisplay/overview"
+"Official driver" = "https://github.com/PiSugar/Whisplay"
+
+[tool.setuptools]
+packages = ["whisplaykit"]

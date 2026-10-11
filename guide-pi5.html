@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Raspberry Pi 5 + Whisplay HAT — Interactive Student Guide</title>
+<style>
+  :root{
+    --bg:#0b1020; --panel:#141a2e; --panel2:#101528; --edge:#252f4b;
+    --text:#e8ecf4; --dim:#9aa5c0; --code:#0a0f1e;
+    --accent:#38bdf8; --accent2:#a78bfa; --ok:#34d399; --warn:#fbbf24; --bad:#f87171;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--text);
+       font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  a{color:var(--accent)}
+  h1,h2,h3{line-height:1.25}
+  code,kbd{font:0.92em ui-monospace,"Cascadia Code","JetBrains Mono",Consolas,monospace}
+
+  /* ---------- layout ---------- */
+  .wrap{display:grid;grid-template-columns:250px 1fr;min-height:100vh}
+  nav{position:sticky;top:0;height:100vh;overflow-y:auto;padding:20px 14px;
+      background:var(--panel2);border-right:1px solid var(--edge)}
+  nav .brand{font-weight:700;font-size:1.05rem;margin-bottom:4px}
+  nav .sub{color:var(--dim);font-size:0.8rem;margin-bottom:14px}
+  nav ol{list-style:none;margin:0;padding:0;counter-reset:step}
+  nav li{margin:2px 0;counter-increment:step}
+  nav a{display:flex;gap:8px;align-items:baseline;padding:7px 9px;border-radius:8px;
+        color:var(--dim);text-decoration:none;font-size:0.9rem;border:1px solid transparent}
+  nav a:hover{background:#1a2140;color:var(--text)}
+  nav a::before{content:counter(step);flex:0 0 20px;height:20px;line-height:20px;
+        text-align:center;border-radius:50%;background:#222a4a;font-size:0.72rem;color:var(--dim)}
+  nav a.done{color:var(--ok)}
+  nav a.done::before{content:"✓";background:var(--ok);color:#06281c}
+  main{padding:28px min(5vw,64px) 120px;max-width:980px}
+  @media (max-width:900px){
+    .wrap{grid-template-columns:1fr}
+    nav{position:static;height:auto;border-right:0;border-bottom:1px solid var(--edge)}
+  }
+
+  /* ---------- progress ---------- */
+  .progress{position:sticky;top:0;z-index:5;background:rgba(11,16,32,.9);
+            backdrop-filter:blur(6px);padding:12px 0}
+  .barbox{height:10px;background:#1c2440;border-radius:99px;overflow:hidden;border:1px solid var(--edge)}
+  .bar{height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--accent2));
+       transition:width .35s ease}
+  .prow{display:flex;justify-content:space-between;align-items:center;color:var(--dim);
+        font-size:0.85rem;margin-bottom:6px}
+
+  /* ---------- cards / sections ---------- */
+  section{background:var(--panel);border:1px solid var(--edge);border-radius:14px;
+          padding:22px 24px;margin:22px 0;scroll-margin-top:80px}
+  section h2{margin-top:0;font-size:1.35rem;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  .step-badge{flex:0 0 auto;font-size:.72rem;color:#0b1020;background:var(--accent);
+              padding:2px 10px;border-radius:99px;font-weight:700;letter-spacing:.04em}
+  .complete{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:.85rem;color:var(--dim)}
+  .complete input{width:18px;height:18px;accent-color:var(--ok)}
+  section.is-done{border-color:#1e5e46}
+  .goal{color:var(--accent2);font-size:.95rem;margin:-6px 0 14px}
+
+  /* ---------- code blocks ---------- */
+  .codeblock{margin:14px 0;border:1px solid var(--edge);border-radius:10px;overflow:hidden;background:var(--code)}
+  .codebar{display:flex;justify-content:space-between;align-items:center;
+           background:#121a33;padding:6px 12px;border-bottom:1px solid var(--edge)}
+  .codebar .label{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+  .copy{cursor:pointer;border:1px solid var(--edge);background:#1b2547;color:var(--text);
+        border-radius:7px;padding:4px 12px;font-size:.8rem;transition:.15s}
+  .copy:hover{border-color:var(--accent);color:var(--accent)}
+  .copy.ok{background:var(--ok);border-color:var(--ok);color:#06281c}
+  .codeblock pre{margin:0;padding:14px 16px;overflow-x:auto}
+  .codeblock code{display:block;white-space:pre;font-size:.9rem;line-height:1.75}
+  .codeblock[data-kind="shell"] span.c{display:block;color:#e2e8f0}
+  .codeblock[data-kind="shell"] span.c::before{content:"$ ";color:var(--ok);user-select:none}
+  span.o{display:block;color:#5b6785}
+  span.cm{display:block;color:#64748b}
+  .hl{color:var(--warn)}
+
+  /* ---------- explanations ---------- */
+  details{margin:10px 0;border:1px dashed #33405f;border-radius:10px;background:#0f1526}
+  details[open]{background:#111a30}
+  summary{cursor:pointer;padding:10px 14px;font-weight:600;color:var(--accent);list-style:none}
+  summary::-webkit-details-marker{display:none}
+  summary::before{content:"🔍 ";margin-right:4px}
+  details.expect summary{color:var(--dim)} details.expect summary::before{content:"📟 "}
+  details.warn summary{color:var(--warn)}  details.warn summary::before{content:"⚠️ "}
+  details.trouble summary{color:var(--bad)} details.trouble summary::before{content:"🩹 "}
+  details .body{padding:4px 16px 14px}
+  table.cmd-explain{width:100%;border-collapse:collapse;font-size:.9rem}
+  table.cmd-explain td{padding:8px 10px;border-top:1px solid var(--edge);vertical-align:top}
+  table.cmd-explain td:first-child{width:46%;color:#7dd3fc}
+  table.cmd-explain code{background:#0a0f1e;padding:2px 7px;border-radius:6px;border:1px solid var(--edge)}
+
+  .callout{border-left:4px solid var(--accent);background:#101a33;padding:10px 16px;
+           border-radius:0 10px 10px 0;margin:14px 0;font-size:.95rem}
+  .callout.warn{border-color:var(--warn);background:#221a10}
+  .callout.good{border-color:var(--ok);background:#0e231c}
+
+  ol.nums{counter-reset:x;list-style:none;padding-left:0}
+  ol.nums li{counter-increment:x;position:relative;padding-left:2.2em;margin:10px 0}
+  ol.nums li::before{content:counter(x);position:absolute;left:0;top:2px;width:1.5em;height:1.5em;
+      line-height:1.5em;text-align:center;border-radius:50%;background:var(--accent2);
+      color:#0b1020;font-weight:700;font-size:.8em}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+  .mini{background:var(--panel2);border:1px solid var(--edge);border-radius:10px;padding:12px 14px;font-size:.9rem}
+  .mini h4{margin:0 0 8px;color:var(--accent)}
+  .mini code{background:#0a0f1e;padding:1px 6px;border-radius:5px;border:1px solid var(--edge)}
+
+  .toolbar{display:flex;gap:10px;margin:14px 0}
+  .toolbar button{cursor:pointer;border:1px solid var(--edge);background:#1b2547;color:var(--text);
+        border-radius:8px;padding:6px 14px;font-size:.82rem}
+  .toolbar button:hover{border-color:var(--accent)}
+  .toast{position:fixed;right:18px;bottom:18px;background:var(--ok);color:#06281c;font-weight:600;
+        padding:12px 18px;border-radius:12px;opacity:0;transform:translateY(12px);
+        transition:.3s;pointer-events:none;box-shadow:0 8px 30px rgba(0,0,0,.5)}
+  .toast.show{opacity:1;transform:none}
+  footer{color:var(--dim);font-size:.85rem;text-align:center;margin:40px 0 0}
+  @media print{ nav,.progress,.toolbar,.complete,.copy{display:none!important}
+    section{border:0} details{display:block} summary::after{content:""} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<nav>
+  <div class="brand">🍬 PiSugar Whisplay</div>
+  <div class="sub">RPi 5 · Trixie · student setup guide</div>
+  <div class="prow" style="margin-bottom:10px"><span>Progress</span><span id="pct">0%</span></div>
+  <div class="barbox" style="margin-bottom:16px"><div class="bar" id="bar"></div></div>
+  <ol>
+    <li><a href="#s1" data-step="d1">Prepare your kit</a></li>
+    <li><a href="#s2" data-step="d2">Flash Trixie</a></li>
+    <li><a href="#s3" data-step="d3">Mount the HAT &amp; boot</a></li>
+    <li><a href="#s4" data-step="d4">Update the system</a></li>
+    <li><a href="#s5" data-step="d5">Install the driver</a></li>
+    <li><a href="#s6" data-step="d6">Verify the hardware</a></li>
+    <li><a href="#s7" data-step="d7">Install Python pieces</a></li>
+    <li><a href="#s8" data-step="d8">Run the demos</a></li>
+    <li><a href="#s9" data-step="d9">Your first program</a></li>
+    <li><a href="#s10" data-step="d10">API cheat sheet</a></li>
+  </ol>
+</nav>
+
+<main>
+  <div class="progress">
+    <div class="prow"><span>Raspberry Pi 5 + Whisplay HAT — from zero to running code</span><span id="pct2">0%</span></div>
+    <div class="barbox"><div class="bar" id="bar2"></div></div>
+  </div>
+
+  <h1>Raspberry Pi 5 + Whisplay HAT<br><span style="color:var(--dim);font-size:.6em;font-weight:400">An interactive guide — every command explained, every command copyable.</span></h1>
+
+  <div class="callout">
+    <b>How to use this guide:</b> work through the steps in order. Press
+    <b>Copy</b> on any code block to grab just the commands (never the example
+    output), paste them into your Pi's terminal, then open
+    <i>“Explain these commands”</i> to understand what you just ran.
+    Tick <i>Step complete</i> as you go — your progress is saved in this browser.
+  </div>
+
+  <div class="toolbar">
+    <button onclick="expandAll(true)">Expand all explanations</button>
+    <button onclick="expandAll(false)">Collapse all</button>
+    <button onclick="resetProgress()">Reset progress</button>
+  </div>
+
+  <!-- ============================ STEP 1 ============================ -->
+  <section id="s1">
+    <h2><span class="step-badge">STEP 1</span> Prepare your kit
+      <label class="complete"><input type="checkbox" class="done" id="d1"> Step complete</label></h2>
+    <p class="goal">Goal: have everything on the table before you start.</p>
+    <ul>
+      <li>🥧 <b>Raspberry Pi 5</b> (any RAM size) with the 40-pin header</li>
+      <li>🍬 <b>PiSugar Whisplay HAT</b> (1.69″ 240×280 LCD, button, RGB LED, dual mics, 1&nbsp;W speaker)</li>
+      <li>💾 microSD card, 16&nbsp;GB or larger</li>
+      <li>⚡ Official 5&nbsp;V / 5&nbsp;A USB-C power supply</li>
+      <li>💻 A laptop/PC with a microSD reader, and either
+        <b>an HDMI monitor + USB keyboard</b> for the Pi <i>or</i> an SSH connection</li>
+    </ul>
+    <details class="warn"><summary><b>Handle with care</b></summary><div class="body">
+      <ul>
+        <li>The Whisplay screen is <b>glass</b>. Hold the HAT by its PCB edges — never press on the display.</li>
+        <li>Always fit or remove the HAT with the Pi <b>powered off</b>.</li>
+        <li>If you also use a PiSugar battery board, flip its <b>AUTO</b> switch <b>off</b>:
+            it shares the I2C bus and can stop the audio chip from being detected.</li>
+      </ul>
+    </div></details>
+  </section>
+
+  <!-- ============================ STEP 2 ============================ -->
+  <section id="s2">
+    <h2><span class="step-badge">STEP 2</span> Flash Raspberry Pi OS “Trixie”
+      <label class="complete"><input type="checkbox" class="done" id="d2"> Step complete</label></h2>
+    <p class="goal">Goal: a fresh, up-to-date OS on the microSD card, with SSH enabled if you need it.</p>
+    <ol class="nums">
+      <li>On your laptop, open <b>Raspberry Pi Imager</b> (install it from
+          <a href="https://www.raspberrypi.com/software/">raspberrypi.com/software</a> if needed).</li>
+      <li><b>Choose Device:</b> <i>Raspberry Pi 5</i>.</li>
+      <li><b>Choose OS:</b> <i>Raspberry Pi OS (64-bit)</i> — this is the “Trixie” (Debian 13) release.</li>
+      <li><b>Choose Storage:</b> your microSD card. Double-check you picked the right drive — it will be erased!</li>
+      <li>Click <b>Next → Edit Settings</b> and set:
+        <ul>
+          <li>hostname, e.g. <code>whisplay</code>, plus a username and password</li>
+          <li>your Wi-Fi name and password</li>
+          <li><b>Enable SSH</b> (on the Services tab) if you'll work without a monitor</li>
+        </ul></li>
+      <li>Write the card, then move it into the Pi.</li>
+    </ol>
+    <div class="callout">💡 <b>What those settings did:</b> the Imager writes first-boot config files onto
+      the SD card (user account, Wi-Fi credentials, an <code>ssh</code> flag file). The Pi applies them on
+      its very first boot, so you never need to set them up by hand.</div>
+  </section>
+
+  <!-- ============================ STEP 3 ============================ -->
+  <section id="s3">
+    <h2><span class="step-badge">STEP 3</span> Mount the HAT &amp; first boot
+      <label class="complete"><input type="checkbox" class="done" id="d3"> Step complete</label></h2>
+    <p class="goal">Goal: Whisplay physically connected and a terminal open.</p>
+    <ol class="nums">
+      <li>With the Pi <b>unpowered</b>, press the Whisplay onto the 40-pin header.
+          Orient it so the <b>button sits above the USB/Ethernet end</b> of the Pi 5.
+          All 40 pins should be covered; hold the board edges, not the glass.</li>
+      <li>Peel the protective film off the screen.</li>
+      <li>Connect power. First boot takes ~1 minute; the Pi may reboot once while it
+          expands the filesystem.</li>
+      <li>Open a terminal: on the desktop use the terminal icon (or
+          <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>T</kbd>); over the network use SSH from your laptop:</li>
+    </ol>
+    <div class="codeblock" data-kind="shell">
+      <div class="codebar"><span class="label">terminal (your laptop, for SSH)</span><button class="copy">Copy</button></div>
+      <pre><code><span class="c">ssh yourname@whisplay.local</span></code></pre>
+    </div>
+    <details><summary>Explain this command</summary><div class="body">
+      <table class="cmd-explain">
+        <tr><td><code>ssh …</code></td><td>Secure Shell — runs a terminal on the Pi over the network.</td></tr>
+        <tr><td><code>yourname@</code></td><td>The username you set in the Imager.</td></tr>
+        <tr><td><code>whisplay.local</code></td><td>The Pi's hostname. <code>.local</code> (mDNS) finds it on
+          your network without knowing its IP. If it fails, find the IP in your router and use
+          <code>ssh yourname@192.168.x.x</code>.</td></tr>
+      </table>
+    </div></details>
+    <div class="callout">💡 <b>Everything from here runs in this terminal on the Pi.</b></div>
+  </section>
+
+  <!-- ============================ STEP 4 ============================ -->
+  <section id="s4">
+    <h2><span class="step-badge">STEP 4</span> Update the system
+      <label class="complete"><input type="checkbox" class="done" id="d4"> Step complete</label></h2>
+    <p class="goal">Goal: latest packages and kernel — this matters for the Pi 5 GPIO fix described below.</p>
+    <div class="codeblock" data-kind="shell">
+      <div class="codebar"><span class="label">terminal</span><button class="copy">Copy</button></div>
+      <pre><code><span class="c">sudo apt update</span>
+<span class="c">sudo apt full-upgrade -y</span></code></pre>
+    </div>
+    <details><summary>Explain these commands</summary><div class="body">
+      <table class="cmd-explain">
+        <tr><td><code>sudo</code></td><td>“Superuser do” — run the command with administrator
+          rights. Installing software and enabling hardware buses need this.</td></tr>
+        <tr><td><code>apt update</code></td><td>Refreshes the <i>list</i> of available packages
+          from Debian/Raspberry Pi servers. It installs nothing.</td></tr>
+        <tr><td><code>apt full-upgrade -y</code></td><td>Downloads and installs the newest versions
+          of everything, allowed to add/remove dependencies. <code>-y</code> answers “yes”
+          to prompts so it runs unattended. First run can take a few minutes.</td></tr>
+      </table>
+      <div class="callout good" style="margin:.5em 0 0"><b>Why the Pi 5 cares:</b> the kernel update includes the
+        change that exposes the Pi 5's header GPIO as <code>gpiochip0</code> (alias of the
+        <code>pinctrl-rp1</code> controller). whisplay-kit detects it automatically either way.</div>
+    </div></details>
+    <div class="codeblock" data-kind="shell">
+      <div class="codebar"><span class="label">terminal</span><button class="copy">Copy</button></div>
+      <pre><code><span class="c">sudo reboot</span></code></pre>
+    </div>
+    <p style="color:var(--dim)">Reboot so the new kernel is active, then reconnect / reopen your terminal.</p>
+  </section>
+
+  <!-- ============================ STEP 5 ============================ -->
+  <section id="s5">
+    <h2><span class="step-badge">STEP 5</span> Install the official Whisplay driver
+      <label class="complete"><input type="checkbox" class="done" id="d5"> Step complete</label></h2>
+    <p class="goal">Goal: kernel-level support for the screen and the sound chip.</p>
+    <div class="codeblock" data-kind="shell">
+      <div class="codebar"><span class="label">terminal</span><button class="copy">Copy</button></div>
+      <pre><code><span class="c">cd ~</span>
+<span class="c">git clone https://github.com/PiSugar/Whisplay.git --depth 1</span>
+<span class="c">cd Whisplay</span>
+<span class="c">sudo bash install_driver.sh</span>
+<span class="c">sudo reboot</span></code></pre>
+    </div>
+    <details><summary>Explain these commands — and what the installer actually does</summary><div class="body">
+      <table class="cmd-explain">
+        <tr><td><code>cd ~</code></td><td>Go to your home directory so the download lands somewhere tidy.</td></tr>
+        <tr><td><code>git clone … --depth 1</code></td><td><code>git</code> downloads the driver's source
+          repository from GitHub. <code>--depth 1</code> fetches only the latest snapshot (no history) — faster.</td></tr>
+        <tr><td><code>sudo bash install_driver.sh</code></td><td>Runs PiSugar's installer as administrator. It:
+          <ul>
+            <li>Detects your platform (Raspberry Pi) and OS.</li>
+            <li>Enables the <b>SPI</b> bus (talks to the LCD) and the <b>I2C + I2S</b> buses
+              (talk to the audio chip) in the boot configuration.</li>
+            <li>Installs the <b>whisplay-soundcard</b> device-tree overlay — the piece that teaches the
+              Linux kernel that an ES8389/WM8960 audio chip exists, so it appears as a real sound card.</li>
+            <li>Programs ALSA (Linux's sound system) defaults for speaker and microphones.</li>
+          </ul></td></tr>
+        <tr><td><code>sudo reboot</code></td><td>Bus and overlay changes only take effect at boot.</td></tr>
+      </table>
+      <div class="callout" style="margin:.5em 0 0"><b>EEPROM magic:</b> the Whisplay HAT carries a tiny ID
+        chip. On boot the Pi 5 reads it and loads the sound overlay by itself — that's why after this
+        one-time install, everything “just works” on every boot.</div>
+    </div></details>
+    <details class="warn"><summary>If the sound card doesn't appear after reboot</summary><div class="body">
+      Old driver versions (<code>install_wm8960_drive.sh</code>) are deprecated — always use the unified
+      <code>install_driver.sh</code> from a fresh clone. Also make sure no other HAT (or a PiSugar battery
+      in AUTO mode) is occupying the I2C bus.
+    </div></details>
+  </section>
+
+  <!-- ============================ STEP 6 ============================ -->
+  <section id="s6">
+    <h2><span class="step-badge">STEP 6</span> Verify the hardware
+      <label class="complete"><input type="checkbox" class="done" id="d6"> Step complete</label></h2>
+    <p class="goal">Goal: prove each peripheral exists before writing any code.</p>
+
+    <h3>6.1 — Sound card</h3>
+    <div class="codeblock" data-kind="shell">
+      <div class="codebar"><span class="label">terminal</span><button class="copy">Copy</button></div>
+      <pre><code><span class="c">aplay -l</span>
+<span class="c">arecord -l</span></code></pre>
+    </div>
+    <details class="expect"><summary>Expected output</summary><div class="body">
+      <pre style="color:var(--dim)">card 0: whisplaysound [Whisplay Sound], device 0: Whisplay HiFi ES8389 HiFi-0 [...]</pre>
+      <p>Both commands must list <b>whisplaysound</b>. <code>aplay -l</code> shows playback
+      (speaker); <code>arecord -l</code> shows capture (microphones).</p>
+    </div></details>
+    <details><summary>Explain these commands</summary><div class="body">
+      <table class="cmd-explain">
+        <tr><td><code>aplay -l</code></td><td>ALSA (<b>A</b>dvanced <b>L</b>inux <b>S</b>ound
+          <b>A</b>rchitecture) tool: <code>-l</code> lists all playback devices the kernel knows.</td></tr>
+        <tr><td><code>arecord -l</code></td><td>Same, but for recording (capture) devices.</td></tr>
+      </table>
+    </div></details>
+
+    <h3>6.2 — Play a test tone through the speaker</h3>
+    <div class="codeblock" data-kind="shell">
+      <div class="codebar"><span class="label">terminal</span><button class="copy">Copy</button></div>
+      <pre><code><span class="c">amixer -c whisplaysound cset name=speaker 80</span>
+<span class="c">speaker-test -D plughw:whisplaysound,0 -t sine -f 440 -l 1</span></code></pre>
+    </div>
+    <details><summary>Explain these commands</summary><div class="body">
+      <table class="cmd-explain">
+        <tr><td><code>amixer -c whisplaysound cset name=speaker 80</code></td><td>
+          <code>amixer</code> talks to the card's mixer. <code>-c whisplaysound</code> selects the card by
+          name (safer than the number, which can change between boots), and this sets the
+          <code>speaker</code> control to 80 (of 100).</td></tr>
+        <tr><td><code>speaker-test -D plughw:… -t sine -f 440 -l 1</code></td><td>
+          Plays a 440&nbsp;Hz sine wave (“concert A”) once (<code>-l 1</code>).
+          <code>-D plughw:whisplaysound,0</code> chooses the device; the <code>plug</code> prefix means
+          ALSA automatically converts the audio format to what the chip wants.</td></tr>
+      </table>
+      <p>🔊 You should hear a clean beep. Very quiet? Raise the number to ~90; above ~100 the driver
+      clamps at 100 and the small speaker distorts anyway.</p>
+    </div></details>
+
+    <h3>6.3 — Record and play back the microphones</h3>
+    <div class="codeblock" data-kind="shell">
+      <div class="codebar"><span class="label">terminal</span><button class="copy">Copy</button></div>
+      <pre><code><span class="c">amixer -c whisplaysound cset name=mic 60</span>
+<span class="c">arecord -D plughw:whisplaysound,0 -f S32_LE -r 16000 -c 2 -d 3 memo.wav</span>
+<span class="c">aplay -D plughw:whisplaysound,0 memo.wav</span></code></pre>
+    </div>
+    <details><summary>Explain these commands</summary><div class="body">
+      <table class="cmd-explain">
+        <tr><td><code>name=mic 60</code></td><td>Mic pre-amp gain 60/100. If recordings are too quiet, raise it.</td></tr>
+        <tr><td><code>-f S32_LE</code></td><td>Sample format: signed 32-bit little-endian samples.
+          That's the format Whisplay's codec driver prefers (plughw would convert others anyway).</td></tr>
+        <tr><td><code>-r 16000 -c 2 -d 3</code></td><td>16&nbsp;kHz sample rate (fine for speech),
+          2 channels (the board has two mics: left + right), record for 3 seconds.</td></tr>
+        <tr><td><code>memo.wav</code></td><td>Output file — a standard WAV you can play anywhere.</td></tr>
+      </table>
+    </div></details>
+
+    <h3>6.4 — SPI (screen bus) and GPIO chip</h3>
+    <div class="codeblock" data-kind="shell">
+      <div class="codebar"><span class="label">terminal</span><button class="copy">Copy</button></div>
+      <pre><code><span class="c">ls /dev/spidev*</span>
+<span class="c">gpiodetect</span></code></pre>
+    </div>
+    <details class="expect"><summary>Expected output</summary><div class="body">
+      <pre style="color:var(--dim)">/dev/spidev0.0  /dev/spidev0.1
+gpiochip0 [pinctrl-rp1] (54 lines)
+gpiochip10 [gpio-brcmstb@…] (32 lines)
+…</pre>
+    </div></details>
+    <details><summary>Explain these commands</summary><div class="body">
+      <table class="cmd-explain">
+        <tr><td><code>ls /dev/spidev*</code></td><td>SPI devices appear as files under <code>/dev</code>.
+          <code>spidev0.0</code> is the bus the LCD hangs on; if it's missing, SPI wasn't enabled.</td></tr>
+        <tr><td><code>gpiodetect</code></td><td>Lists all GPIO controller chips. On a current Trixie
+          kernel the Pi 5's header pins live on <b>gpiochip0 [pinctrl-rp1]</b> (54 lines).
+          On older kernels this same controller was called <b>gpiochip4</b> — which is exactly why
+          whisplay-kit finds it by <i>name</i> instead of a fixed number.</td></tr>
+      </table>
+    </div></details>
+    <div class="callout good">✅ All checks green? The hardware layer is ready. The screen won't show
+      anything yet — it lights up in step 8 when our Python code first talks to it.</div>
+  </section>
+
+  <!-- ============================ STEP 7 ============================ -->
+  <section id="s7">
+    <h2><span class="step-badge">STEP 7</span> Install the Python pieces &amp; whisplay-kit
+      <label class="complete"><input type="checkbox" class="done" id="d7"> Step complete</label></h2>
+    <p class="goal">Goal: the friendly Python API on top of the hardware.</p>
+
+    <h3>7.1 — System libraries</h3>
+    <div class="codeblock" data-kind="shell">
+      <div class="codebar"><span class="label">terminal</span><button class="copy">Copy</button></div>
+      <pre><code><span class="c">sudo apt install -y python3-spidev python3-libgpiod python3-pil python3-venv python3-pip</span>
+<span class="c">sudo apt install -y python3-numpy mpg123 ffmpeg</span></code></pre>
+    </div>
+    <details><summary>Explain what each package gives you</summary><div class="body">
+      <table class="cmd-explain">
+        <tr><td><code>python3-spidev</code></td><td>Lets Python push bytes over SPI — that's how we
+          send pixels to the LCD (at up to 100&nbsp;MHz!).</td></tr>
+        <tr><td><code>python3-libgpiod</code></td><td>The official way to control GPIO pins from Python
+          on modern Linux. Trixie ships version 2.2 — whisplay-kit speaks both v1 and v2.</td></tr>
+        <tr><td><code>python3-pil</code></td><td>Pillow, the image library. All screen drawing
+          (text, shapes, photos) is Pillow work.</td></tr>
+        <tr><td><code>python3-venv / -pip</code></td><td>Tools for virtual environments and package installs.</td></tr>
+        <tr><td><code>python3-numpy</code></td><td>Optional: makes whole-screen refresh roughly 2× faster.</td></tr>
+        <tr><td><code>mpg123 / ffmpeg</code></td><td>Optional: lets <code>speaker.play()</code> handle MP3
+          and other formats (WAV works without them).</td></tr>
+      </table>
+    </div></details>
+
+    <h3>7.2 — Get whisplay-kit onto the Pi</h3>
+    <div class="codeblock" data-kind="shell">
+      <div class="codebar"><span class="label">terminal</span><button class="copy">Copy</button></div>
+      <pre><code><span class="c">cd ~</span>
+<span class="cm"># Option A: you already copied the whisplay-kit folder to the Pi (USB stick / scp) — just cd into it.</span>
+<span class="c">cd ~/whisplay-kit</span>
+<span class="cm"># Option B: fetch it with git instead:</span>
+<span class="cm"># git clone &lt;your-whisplaykit-repo-url&gt; whisplay-kit &amp;&amp; cd whisplay-kit</span></code></pre>
+    </div>
+
+    <h3>7.3 — Create a virtual environment and install</h3>
+    <div class="codeblock" data-kind="shell">
+      <div class="codebar"><span class="label">terminal</span><button class="copy">Copy</button></div>
+      <pre><code><span class="c">python3 -m venv --system-site-packages ~/whisplay-venv</span>
+<span class="c">source ~/whisplay-venv/bin/activate</span>
+<span class="c">pip install .</span></code></pre>
+    </div>
+    <details><summary>Explain these commands — and why Trixie needs a venv</summary><div class="body">
+      <table class="cmd-explain">
+        <tr><td><code>python3 -m venv …</code></td><td>Creates a private Python environment in
+          <code>~/whisplay-venv</code>. Trixie's system Python is “externally managed” (PEP&nbsp;668):
+          <code>pip install</code> into it directly is refused, to protect apt-managed packages.
+          A venv is the clean workaround.</td></tr>
+        <tr><td><code>--system-site-packages</code></td><td><b>Important!</b> The venv can still
+          <i>see</i> apt-installed packages (<code>spidev</code>, <code>gpiod</code>, Pillow).
+          Those don't exist on PyPI in reliable form, so a sealed venv couldn't use the hardware.</td></tr>
+        <tr><td><code>source …/bin/activate</code></td><td>Switches this terminal into the venv —
+          the prompt gains a <code>(whisplay-venv)</code> prefix. Do this in every new terminal
+          before running examples.</td></tr>
+        <tr><td><code>pip install .</code></td><td>Installs the package described by the current
+          folder (<code>.</code>) — i.e. whisplay-kit itself, plus its dependency Pillow.</td></tr>
+      </table>
+      <div class="callout" style="margin:.5em 0 0"><b>Shortcut for impatient people:</b>
+        <code>pip install . --break-system-packages</code> skips the venv entirely. It works because
+        whisplay-kit is tiny and pure-Python, but the venv habit will save you on every bigger project.</div>
+    </div></details>
+  </section>
+
+  <!-- ============================ STEP 8 ============================ -->
+  <section id="s8">
+    <h2><span class="step-badge">STEP 8</span> Run the demos
+      <label class="complete"><input type="checkbox" class="done" id="d8"> Step complete</label></h2>
+    <p class="goal">Goal: see every peripheral working under our API.</p>
+    <div class="codeblock" data-kind="shell">
+      <div class="codebar"><span class="label">terminal (in ~/whisplay-kit, venv active)</span><button class="copy">Copy</button></div>
+      <pre><code><span class="c">python3 examples/01_hello_display.py</span>
+<span class="c">python3 examples/02_rgb_led.py</span>
+<span class="c">python3 examples/03_button_events.py</span>
+<span class="c">python3 examples/04_voice_memo.py</span></code></pre>
+    </div>
+    <details><summary>What each demo does</summary><div class="body">
+      <table class="cmd-explain">
+        <tr><td><code>01_hello_display.py</code></td><td>Draws text, shapes and a progress bar
+          to the LCD, then dims the backlight. One buffered frame → one SPI push.</td></tr>
+        <tr><td><code>02_rgb_led.py</code></td><td>Tours solid colours, blinking, a breathing
+          “pulse”, and a rainbow — all background-thread effects.</td></tr>
+        <tr><td><code>03_button_events.py</code></td><td>Tap = green flash, double-tap = cyan,
+          long-press exits. Shows the gesture engine (debounce + click/double/long).</td></tr>
+        <tr><td><code>04_voice_memo.py</code></td><td>The full loop: <b>hold</b> the button to
+          record (red LED + timer on screen), release to hear it back (green LED). Long-press exits.</td></tr>
+      </table>
+      <p>Exit any demo with <kbd>Ctrl</kbd>+<kbd>C</kbd>. If a demo can't open GPIO/SPI:
+      <code>sudo usermod -aG gpio,spi $USER</code> and re-login (adds your user to the hardware groups).</p>
+    </div></details>
+    <details class="warn"><summary>Using the optional whisplay-daemon?</summary><div class="body">
+      The official <code>whisplay-daemon</code> service <i>owns</i> the LCD/LED/button. whisplay-kit talks
+      to the hardware directly, so stop the daemon first:
+      <code>sudo systemctl stop whisplay-daemon</code> (and
+      <code>sudo systemctl disable whisplay-daemon</code> if you want that permanently).
+    </div></details>
+  </section>
+
+  <!-- ============================ STEP 9 ============================ -->
+  <section id="s9">
+    <h2><span class="step-badge">STEP 9</span> Your first program
+      <label class="complete"><input type="checkbox" class="done" id="d9"> Step complete</label></h2>
+    <p class="goal">Goal: understand the 9-line core pattern every Whisplay app shares.</p>
+    <div class="codeblock" data-kind="shell">
+      <div class="codebar"><span class="label">terminal</span><button class="copy">Copy</button></div>
+      <pre><code><span class="c">nano myapp.py</span></code></pre>
+    </div>
+    <p>Paste this into nano (copy with the button), save with <kbd>Ctrl</kbd>+<kbd>O</kbd>, <kbd>Enter</kbd>, exit <kbd>Ctrl</kbd>+<kbd>X</kbd>:</p>
+    <div class="codeblock" data-kind="python">
+      <div class="codebar"><span class="label">python — myapp.py</span><button class="copy">Copy</button></div>
+      <pre><code>from whisplaykit import Whisplay        # 1
+
+with Whisplay() as board:                # 2
+    board.display.fill("#101830")        # 3
+    board.display.text_centered("TAP ME", 60, size=26, bold=True)  # 4
+    board.display.refresh()              # 5
+
+    board.led.pulse("navy", period=2.5)  # 6
+
+    def tapped():                        # 7
+        board.speaker.beep(880)
+        board.led.blink("green", times=2)
+
+    board.button.on_click(tapped)        # 8
+    board.button.wait_for_long_press()   # 9</code></pre>
+    </div>
+    <div class="codeblock" data-kind="shell">
+      <div class="codebar"><span class="label">terminal</span><button class="copy">Copy</button></div>
+      <pre><code><span class="c">python3 myapp.py</span></code></pre>
+    </div>
+    <details><summary>Line-by-line: what your program does</summary><div class="body">
+      <table class="cmd-explain">
+        <tr><td>1</td><td>Imports the <code>Whisplay</code> class — one object controlling the whole board.</td></tr>
+        <tr><td>2</td><td><code>with … as board</code> opens the hardware: SPI, the GPIO lines
+          (found automatically, incl. the Pi 5's <code>gpiochip0</code>), and a background thread watching
+          the button. Leaving the <code>with</code> block cleans everything up automatically.</td></tr>
+        <tr><td>3–4</td><td>Drawing goes to an off-screen buffer: fill dark navy, then centred bold text
+          at y=60. <code>refresh()</code> (line 5) pushes the buffer to the LCD in one transfer —
+          nothing appears before it.</td></tr>
+        <tr><td>6</td><td>A breathing navy glow — runs in the background while your code continues.</td></tr>
+        <tr><td>7–8</td><td><code>on_click</code> registers a <b>callback</b>: the button thread calls
+          <code>tapped()</code> each time you tap. It beeps at 880&nbsp;Hz and flashes green.</td></tr>
+        <tr><td>9</td><td>Blocks until you hold the button (~0.8&nbsp;s) — this is our “quit gesture”.
+          Then the <code>with</code> block closes: LED off, pins released, done.</td></tr>
+      </table>
+    </div></details>
+    <div class="callout"><b>Try next:</b> make the tap counter show on screen
+      (<code>board.display.clear()</code> → <code>text_centered(f"Taps: {n}", 130)</code> →
+      <code>refresh()</code> inside <code>tapped()</code>), or change the breathing colour.
+      Prototype live: run <code>python3</code> alone and type these commands interactively!</div>
+  </section>
+
+  <!-- ============================ STEP 10 ============================ -->
+  <section id="s10">
+    <h2><span class="step-badge">STEP 10</span> API cheat sheet
+      <label class="complete"><input type="checkbox" class="done" id="d10"> Step complete</label></h2>
+    <p class="goal">Goal: one glanceable card per peripheral. Full detail: <code>USER_GUIDE.md</code>.</p>
+    <div class="grid">
+      <div class="mini"><h4>🖥️ Screen <code>board.display</code></h4>
+        <code>fill("navy")</code> instant colour<br>
+        <code>clear() / refresh()</code><br>
+        <code>text("Hi", 10, 10, size=20)</code><br>
+        <code>text_centered("Hi", 40, bold=True)</code><br>
+        <code>rectangle / circle / line / pixel</code><br>
+        <code>progress_bar(x,y,w,h,0.5,label="auto")</code><br>
+        <code>draw_image("pic.jpg", fit=True)</code><br>
+        <code>show("logo.png")</code> instant image<br>
+        <code>set_brightness(70)</code> · <code>save("s.png")</code></div>
+      <div class="mini"><h4>💡 RGB LED <code>board.led</code></h4>
+        <code>set_color("red")</code> / <code>set("#ff8800")</code><br>
+        <code>set_rgb(0, 80, 255)</code><br>
+        <code>blink("red", times=3)</code><br>
+        <code>pulse("navy", period=2.5)</code> breathing<br>
+        <code>rainbow(speed=0.2)</code><br>
+        <code>stop_effect()</code> · <code>off()</code></div>
+      <div class="mini"><h4>🔘 Button <code>board.button</code></h4>
+        <code>is_pressed</code> property<br>
+        <code>wait_for_press(timeout=5)</code><br>
+        <code>on_press(fn)</code> / <code>on_release(fn)</code><br>
+        <code>on_click(fn)</code><br>
+        <code>on_double_click(fn)</code><br>
+        <code>on_long_press(fn)</code><br>
+        tuning: <code>.long_press_time</code>, <code>.double_click_window</code></div>
+      <div class="mini"><h4>🔊 Speaker <code>board.speaker</code></h4>
+        <code>play("sound.wav")</code> blocking<br>
+        <code>play("a.mp3", blocking=False)</code><br>
+        <code>play_tone(440, duration=0.3)</code><br>
+        <code>beep(1000, count=2)</code><br>
+        <code>set_volume(70)</code> / <code>get_volume()</code><br>
+        <code>stop()</code></div>
+      <div class="mini"><h4>🎤 Microphone <code>board.mic</code></h4>
+        <code>record("a.wav", duration=5)</code><br>
+        <code>start_recording(path)</code><br>
+        <code>stop_recording()</code><br>
+        <code>record_while_pressed(board.button)</code><br>
+        <code>set_gain(60)</code> / <code>get_gain()</code></div>
+      <div class="mini"><h4>🎨 Colours</h4>
+        Anywhere a colour is needed:<br>
+        <code>"sky_blue"</code> (see colors.NAMED)<br>
+        <code>"#1e90ff"</code> hex<br>
+        <code>(30, 144, 255)</code> tuple</div>
+    </div>
+
+    <h3>Troubleshooting quick accordion</h3>
+    <details class="trouble"><summary>No sound / <code>aplay -l</code> lacks whisplaysound</summary><div class="body">
+      Reboot after the driver install; turn a PiSugar battery's AUTO switch off; re-run
+      <code>sudo bash install_driver.sh</code> from a fresh clone; check <code>dmesg | grep -i es8389</code>.
+    </div></details>
+    <details class="trouble"><summary>Screen stays black</summary><div class="body">
+      Confirm <code>ls /dev/spidev*</code> exists (driver step). Our code sets the backlight on init —
+      try <code>board.set_brightness(100)</code>. The glass is fragile; a physically cracked panel shows
+      streaks or nothing.
+    </div></details>
+    <details class="trouble"><summary><code>pip install</code> says “externally-managed-environment”</summary><div class="body">
+      That's Trixie protecting itself. Use the venv from step 7.3, or append <code>--break-system-packages</code>.
+    </div></details>
+    <details class="trouble"><summary>GPIO permission errors in Python</summary><div class="body">
+      <code>sudo usermod -aG gpio,spi $USER</code>, then log out/in. Or run with <code>sudo -E python3 …</code>
+      while experimenting (<code>-E</code> keeps your venv).
+    </div></details>
+    <details class="trouble"><summary>MP3 won't play</summary><div class="body">
+      <code>sudo apt install mpg123</code> (or ffmpeg). WAV always works.
+    </div></details>
+    <details class="trouble"><summary>Button/LCD seems “taken” by another process</summary><div class="body">
+      The official daemon owns the hardware when running:
+      <code>sudo systemctl stop whisplay-daemon</code>.
+    </div></details>
+  </section>
+
+  <footer>
+    Built for whisplay-kit · Hardware &amp; kernel driver:
+    <a href="https://github.com/PiSugar/Whisplay">PiSugar/Whisplay</a> (Apache-2.0) ·
+    <a href="https://docs.pisugar.com/docs/product-wiki/whisplay/overview">PiSugar docs</a><br>
+    Keep this file with your project — it works offline, right on the Pi.
+  </footer>
+</main>
+</div>
+
+<div class="toast" id="toast">🎉 All steps complete — your Pi 5 + Whisplay is fully set up!</div>
+
+<script>
+const LS_KEY = "whisplay-pi5-guide-v2";
+
+/* ---------- copy buttons ---------- */
+function copyText(t){
+  if (navigator.clipboard) {
+    return navigator.clipboard.writeText(t).catch(() => legacyCopy(t));
+  }
+  return Promise.resolve(legacyCopy(t));
+}
+function legacyCopy(t){
+  const ta = document.createElement("textarea");
+  ta.value = t; ta.style.position = "fixed"; ta.style.opacity = "0";
+  document.body.appendChild(ta); ta.select();
+  try { document.execCommand("copy"); } catch(e) {}
+  document.body.removeChild(ta);
+}
+function attachCopy(){
+  document.querySelectorAll(".copy").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const block = btn.closest(".codeblock");
+      let text;
+      if (block.dataset.kind === "shell") {
+        // collect only real command lines (never comments or sample output)
+        text = [...block.querySelectorAll("code span.c")]
+                 .map(s => s.textContent).join("\n");
+      } else {
+        text = block.querySelector("code").innerText;
+      }
+      copyText(text).then(() => {
+        const old = btn.textContent;
+        btn.textContent = "✓ Copied"; btn.classList.add("ok");
+        setTimeout(() => { btn.textContent = old; btn.classList.remove("ok"); }, 1400);
+      });
+    });
+  });
+}
+
+/* ---------- progress checkboxes ---------- */
+const boxes = () => [...document.querySelectorAll("input.done")];
+function saveProgress(){
+  const state = {};
+  boxes().forEach(b => state[b.id] = b.checked);
+  localStorage.setItem(LS_KEY, JSON.stringify(state));
+}
+function loadProgress(){
+  let state = {};
+  try { state = JSON.parse(localStorage.getItem(LS_KEY) || "{}"); } catch(e) {}
+  boxes().forEach(b => b.checked = !!state[b.id]);
+}
+function refreshProgress(){
+  const all = boxes();
+  const done = all.filter(b => b.checked).length;
+  const pct = all.length ? Math.round(100 * done / all.length) : 0;
+  ["bar","bar2"].forEach(id => { const el = document.getElementById(id); if (el) el.style.width = pct + "%"; });
+  ["pct","pct2"].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = pct + "%"; });
+  document.querySelectorAll("nav a[data-step]").forEach(a => {
+    const box = document.getElementById(a.dataset.step);
+    a.classList.toggle("done", !!(box && box.checked));
+  });
+  all.forEach(b => b.closest("section").classList.toggle("is-done", b.checked));
+  if (pct === 100 && all.length) {
+    const t = document.getElementById("toast");
+    t.classList.add("show");
+    setTimeout(() => t.classList.remove("show"), 4000);
+  }
+}
+function resetProgress(){
+  boxes().forEach(b => b.checked = false);
+  saveProgress(); refreshProgress();
+}
+
+/* ---------- details helpers ---------- */
+function expandAll(open){
+  document.querySelectorAll("details").forEach(d => d.open = open);
+}
+
+/* ---------- init ---------- */
+attachCopy();
+loadProgress();
+refreshProgress();
+boxes().forEach(b => b.addEventListener("change", () => { saveProgress(); refreshProgress(); }));
+</script>
+</body>
+</html>
